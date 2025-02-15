@@ -6,6 +6,14 @@ from typing import Set, Dict, Optional
 import os
 from datetime import datetime
 import logging
+from document_validator import DocumentValidator
+
+class ValidationError(Exception):
+    """Custom exception for validatiohn errors that contain all the validation messages"""
+    def __init__(self, validation_errors: dict):
+        self.validation_errors = validation_errors
+        message = "\n".join(f"{k}: {v}" for k, v in validation_errors.items())
+        super().__init__(message)
 
 class TranscriptGenerator:
     """A class to generate transcripts from accolades and templates.
@@ -32,15 +40,17 @@ class TranscriptGenerator:
             FileNotFoundError: If either input file doesn't exist
             pd.errors.EmptyDataError: If either input file is empty
         """
-        try:
-            self.data_df = pd.read_csv(data_path)
-            self.writeups_df = pd.read_csv(writeups_path)
-        except FileNotFoundError as e:
-            logging.error(f"Input file not found: {e}")
-            raise
-        except pd.errors.EmptyDataError as e:
-            logging.error(f"Input file is empty: {e}")
-            raise
+
+        data_errors = DocumentValidator.validate_data_file(data_path)
+        if data_errors:
+            raise ValidationError(data_errors)
+        
+        writeups_errors = DocumentValidator.validate_writeups_file(writeups_path)
+        if writeups_errors:
+            raise ValidationError(writeups_errors)
+
+        self.data_df = pd.read_csv(data_path)
+        self.writeups_df = pd.read_csv(writeups_path)
             
         self.writeups = self._prepare_writeups()
         self.accolade_columns = self._identify_accolade_columns()
@@ -140,6 +150,11 @@ class TranscriptGenerator:
         Raises:
             OSError: If there's an error writing the file
         """
+        if export_dir:
+            dir_errors = DocumentValidator.validate_output_directory(export_dir)
+            if dir_errors:
+                raise ValidationError(dir_errors)
+
         results = []
         for _, person in self.data_df.iterrows():
             try:
@@ -203,6 +218,14 @@ class TranscriptGenerator:
             FileNotFoundError: If template file doesn't exist
             OSError: If there's an error creating output directory
         """
+        template_errors = DocumentValidator.validate_docx_template(docx_template_path)
+        if template_errors:
+            raise ValidationError(template_errors)
+        
+        if export_dir:
+            dir_errors = DocumentValidator.validate_output_directory(export_dir)
+            if dir_errors:
+                raise ValidationError(dir_errors)
         if not os.path.exists(docx_template_path):
             raise FileNotFoundError(f"Template file not found: {docx_template_path}")
 
@@ -240,7 +263,6 @@ class TranscriptGenerator:
                     # Convert to lowercase and replace spaces with underscores
                     key = k.lower()
                     key = key.replace(' ', '_')
-                    # Convert 'colour' to 'color' for template matching
                     normalized_context[key] = v
                 
                 context = normalized_context

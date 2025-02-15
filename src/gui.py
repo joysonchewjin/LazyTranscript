@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 import logging
-from transcript_generator import TranscriptGenerator
+from transcript_generator import TranscriptGenerator, ValidationError
 
 class TranscriptGeneratorGUI:
     def __init__(self, root):
@@ -87,21 +87,40 @@ class TranscriptGeneratorGUI:
 
     def generate_transcripts(self):
         try:
-            if not self.data_path.get() or not self.writeups_path.get():
-                messagebox.showerror("Error", "Please select both data and writeups file")
+            if not self.data_path.get() or not self.writeups_path.get() or not self.output_path.get():
+                messagebox.showerror("Error", "Please fill in all required fields")
+                return
             if self.output_type.get() == "docx" and not self.template_path.get():
                 messagebox.showerror("Error", "Please select a template file for DOCX output")
+                return
             
-            generator = TranscriptGenerator(self.data_path.get(), self.writeups_path.get())
-
-            if self.output_type.get() == 'csv':
-                output_path = generator.export_transcripts_csv(self.output_path.get())
-                messagebox.showinfo("Success", f"CSV file generated successfully at:\n{output_path}")
+            try: 
+                generator = TranscriptGenerator(self.data_path.get(), self.writeups_path.get())
+            except ValidationError as e:
+                messagebox.showerror("Validation Error", str(e))
+                return
+            except Exception as e:
+                messagebox.showerror("Error", f"Failted to initialise generator:/n{str(e)}")
+                return
             
-            else: 
-                output_dir = generator.export_from_docx_template(self.template_path.get(), self.output_path.get())
-                messagebox.showinfo("Success", f"DOCX files generated successfully in:\n{output_dir}")
+            try:
+                if self.output_type.get() == 'csv':
+                    output_path = generator.export_transcripts_csv(self.output_path.get())
+                    messagebox.showinfo("Success", f"DOCX files generated successfully in:\n{output_path}")
 
+                else:
+                    output_dir = generator.export_from_docx_template(
+                        self.template_path.get(),
+                        self.output_path.get()
+                    )
+                    messagebox.showinfo("Success", f"DOCX files generated successfully in:\n{output_dir}")
+            except ValidationError as e:
+                messagebox.showerror("Validation Error", str(e))
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to generate transcripts:\n{str(e)}")
+                logging.error(f"Error generating transcripts: {e}")
+
+        
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred:\n{str(e)}")
             logging.error(f"Error generating transcripts: {e}")
