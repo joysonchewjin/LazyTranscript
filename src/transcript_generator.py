@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 import logging
 from document_validator import DocumentValidator
+import argparse
+import sys
 
 class ValidationError(Exception):
     """Custom exception for validatiohn errors that contain all the validation messages"""
@@ -282,27 +284,80 @@ class TranscriptGenerator:
                 continue
 
         return str(output_dir)
+    
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description="Generate transcripts from CSV data and writeup templates",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
+    parser.add_argument(
+        "--data",
+        required=True,
+        help='Path to CSV file containing personnel data and accolades'
+    )
+
+    parser.add_argument(
+        '--writeups',
+        required=True,
+        help='Path to CSV file containing writeup templates'
+    )
+
+    parser.add_argument(
+        '--output_type',
+        choices=['csv', 'docx'],
+        default='csv',
+        help='Output format (csv or docx)'
+    )
+    parser.add_argument(
+        '--output_dir',
+        help='Directory to save output files (optional)'
+    )
+
+    parser.add_argument(
+        '--template',
+        help='Path to DOCX template file (required if output-type is docx)'
+    )
+
+    args = parser.parse_args()
+
+    if args.output_type == 'docx' and not args.template:
+        parser.error("--template is required when output type is 'docx'")
+
+    return args
 def main():
     """Main function to run the transcript generator."""
     logging.basicConfig(level=logging.INFO)
+
+    args = parse_args()
     
     try:
         generator = TranscriptGenerator(
-            data_path='../examples/data/example_data.csv', 
-            writeups_path='../examples/writeups/example_writeups.csv',
+            data_path=args.data, 
+            writeups_path=args.writeups,
         )
 
 
-        csv_path = generator.export_transcripts_csv()
-        logging.info(f"CSV exported to: {csv_path}")
+        if args.output_type == 'csv':
+            output_path = generator.export_transcripts_csv(args.output_dir)
+            logging.info(f"CSV exported to: {output_path}")
+        else:  # docx
+            output_dir = generator.export_from_docx_template(
+                args.template,
+                args.output_dir
+            )
+            logging.info(f"DOCX files exported to: {output_dir}")
+            
+    except ValidationError as e:
+        logging.error("Validation error:")
+        for key, value in e.validation_errors.items():
+            logging.error(f"  {key}: {value}")
+        sys.exit(1)
 
-        docx_dir = generator.export_from_docx_template('../examples/template/example_template.docx')
-        logging.info(f"DOCX files exported to: {docx_dir}")
-        
     except Exception as e:
         logging.error(f"Error running transcript generator: {e}")
-        raise
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
