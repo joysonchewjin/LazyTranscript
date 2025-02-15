@@ -39,3 +39,4 @@ Thumbs.db
 *.log
 output/
 transcripts_*/
+*.spec

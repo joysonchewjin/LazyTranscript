@@ -1,0 +1,2 @@
+docxtpl==0.19.1
+pandas==2.2.3
