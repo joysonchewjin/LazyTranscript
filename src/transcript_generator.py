@@ -2,7 +2,7 @@ import pandas as pd
 from string import Template
 from docxtpl import DocxTemplate
 from pathlib import Path
-from typing import Set, Dict, Optional
+from typing import Set, Dict, Optional, List
 import os
 from datetime import datetime
 import logging
@@ -25,7 +25,7 @@ class TranscriptGenerator:
         data_df (pd.DataFrame): DataFrame containing person data and accolades
         writeups_df (pd.DataFrame): DataFrame containing writeup templates
         writeups (Dict[str, Template]): Dictionary of prepared writeup templates
-        accolade_columns (Set[str]): Set of identified accolade column names
+        accolade_columns (List[str]): Set of identified accolade column names
         variable_columns (Set[str]): Set of identified variable column names
     """
     
@@ -58,17 +58,17 @@ class TranscriptGenerator:
         self.accolade_columns = self._identify_accolade_columns()
         self.variable_columns = self._identify_variable_columns()
 
-    def _identify_accolade_columns(self) -> Set[str]:
+    def _identify_accolade_columns(self) -> List[str]:
         """Identify columns that represent accolades.
         
         Returns:
-            Set[str]: Set of column names that start with ACCOLADE_PREFIX
+            List[str]: List of column names that start with ACCOLADE_PREFIX (List to ensure order)
         """
-        return {
+        return [
             col
             for col in self.data_df.columns
             if col.startswith(self.ACCOLADE_PREFIX)
-        }
+        ]
     
     def _identify_variable_columns(self) -> Set[str]:
         """Identify columns that represent variables.
